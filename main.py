@@ -3,6 +3,7 @@ from PIL import Image, ImageDraw
 import flask
 import base64
 import io
+import time
 
 app = flask.Flask(__name__)
 
@@ -23,7 +24,7 @@ def index():
 
 @app.route("/ocr", methods=["POST"])
 def ocr():
-    # 检查是否有文件上传
+    start = time.time()
     if "image" not in flask.request.files:
         return "No file part"
     
@@ -32,13 +33,10 @@ def ocr():
         return "No selected file"
     
     try:
-        # 使用 PIL 加载图像
         img = Image.open(img_file)
         
-        # 获取 OCR 文本和位置
         data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
         
-        # 绘制识别框
         draw = ImageDraw.Draw(img)
         results = []
         for i in range(len(data["text"])):
@@ -48,16 +46,17 @@ def ocr():
                 results.append({"text": text, "position": (x, y, w, h)})
                 draw.rectangle([x, y, x + w, y + h], outline="red", width=2)
 
-        # 将处理后的图片转换为 base64 编码
         buffered = io.BytesIO()
         img.save(buffered, format="PNG")
         img_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
-        # 返回结果页面
         result_html = f"<h1>OCR Result:</h1>"
         for result in results:
             result_html += f"<p>Text: {result['text']}, Position: {result['position']}</p>"
         result_html += f'<img src="data:image/png;base64,{img_base64}" alt="Processed Image"/>'
+
+        end = time.time()
+        result_html += f"<p>Take {end - start:.2f} seconds</p>"
 
         return result_html
 
